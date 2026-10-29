@@ -1,0 +1,8 @@
+{
+  "symbols": ["AAPL", "V", "JPM", "BRK.B", "ABBV", "AMGN", "KO", "XOM", "LMT", "WM"],
+  "fast_ma": 20,
+  "slow_ma": 50,
+  "trade_usd": 4500,
+  "lookback_days": 100,
+  "dry_run": false
+}
