@@ -43,3 +43,26 @@ def compute_signal(closes: pd.Series, fast: int, slow: int) -> dict:
         "prev_fast_ma": round(float(fast_ma.iloc[-2]), 2),
         "prev_slow_ma": round(float(slow_ma.iloc[-2]), 2),
     }
+
+
+def recent_cross(closes: pd.Series, fast: int, slow: int, window: int = 3) -> dict:
+    """Wie compute_signal, sucht aber die letzte Kreuzung innerhalb der letzten `window` Tage.
+
+    Ergebnis enthält zusätzlich:
+      cross      = BUY / SELL / HOLD (letzte Kreuzung im Fenster)
+      cross_date = Datum des Tages, an dem die Kreuzung am Schlusskurs feststand
+      tage_her   = 0 wenn die Kreuzung am letzten Schlusskurs war, 1 = einen Tag davor usw.
+    """
+    res = compute_signal(closes, fast, slow)
+    closes = closes.dropna()
+    diff = closes.rolling(fast).mean() - closes.rolling(slow).mean()
+    res.update(cross=HOLD, cross_date=None, tage_her=None)
+    for k in range(window):
+        i = len(diff) - 1 - k
+        if i < 1 or pd.isna(diff.iloc[i - 1]):
+            break
+        prev, curr = diff.iloc[i - 1], diff.iloc[i]
+        if prev <= 0 < curr or prev >= 0 > curr:
+            res.update(cross=BUY if curr > 0 else SELL, cross_date=str(closes.index[i])[:10], tage_her=k)
+            break
+    return res

@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from dotenv import load_dotenv
 
-from strategy import BUY, SELL, compute_signal
+from strategy import BUY, SELL, compute_signal, recent_cross
 
 BASE = Path(__file__).resolve().parent
 LOG_DIR = BASE / "logs"
@@ -151,14 +151,33 @@ def current_qty(client, symbol: str) -> float:
         return 0.0
 
 
-def has_open_order(client, symbol: str) -> bool:
+def open_orders(client, symbol: str) -> list:
     from alpaca.trading.enums import QueryOrderStatus
     from alpaca.trading.requests import GetOrdersRequest
 
     try:
-        return bool(client.get_orders(GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[symbol])))
+        return list(client.get_orders(GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[symbol])))
     except Exception:
+        return []
+
+
+def filled_since(client, symbol: str, datum: str) -> bool:
+    """Gab es seit dem Kreuzungstag schon eine ausgeführte Order für diese Aktie?"""
+    from alpaca.trading.enums import QueryOrderStatus
+    from alpaca.trading.requests import GetOrdersRequest
+
+    try:
+        ab = datetime.fromisoformat(datum).replace(tzinfo=ET)
+        orders = client.get_orders(GetOrdersRequest(status=QueryOrderStatus.CLOSED, symbols=[symbol], after=ab))
+        return any(o.filled_at is not None for o in orders)
+    except Exception as exc:
+        log.warning("%s | Order-Historie nicht lesbar (%s) -> gehe von 'nicht gehandelt' aus.", symbol, exc)
         return False
+
+
+def _is_stop(order) -> bool:
+    return str(getattr(order.type, "value", order.type)) == "stop" and \
+        str(getattr(order.side, "value", order.side)) == "sell"
 
 
 def place_order(client, symbol: str, qty: float, side: str):
@@ -174,11 +193,55 @@ def place_order(client, symbol: str, qty: float, side: str):
     return client.submit_order(req)
 
 
+def place_stop(client, symbol: str, qty: float, stop_price: float):
+    """Notfall-Stop als eigene Order bei Alpaca (GTC = gilt bis gelöscht, Alpaca löscht nach 90 Tagen)."""
+    from alpaca.trading.enums import OrderSide, TimeInForce
+    from alpaca.trading.requests import StopOrderRequest
+
+    return client.submit_order(StopOrderRequest(
+        symbol=symbol, qty=qty, side=OrderSide.SELL,
+        time_in_force=TimeInForce.GTC, stop_price=round(stop_price, 2)))
+
+
+def wait_fill(client, order_id, seconds: int = 30):
+    import time
+
+    for _ in range(seconds):
+        o = client.get_order_by_id(order_id)
+        if str(getattr(o.status, "value", o.status)) == "filled":
+            return o
+        time.sleep(1)
+    return None
+
+
+def ensure_stop(client, cfg: dict, symbol: str, held: float, orders: list, dry_run: bool) -> None:
+    """Sorgt dafür, dass jede Position einen Notfall-Stop hat (auch nach Ablauf oder für alte Käufe)."""
+    pct = float(cfg.get("stop_loss_pct", 0) or 0) / 100
+    if pct <= 0 or held <= 0 or any(_is_stop(o) for o in orders):
+        return
+    try:
+        entry = float(client.get_open_position(symbol).avg_entry_price)
+    except Exception as exc:
+        log.warning("%s | Einstiegskurs nicht lesbar, kein Stop gesetzt: %s", symbol, exc)
+        return
+    preis = entry * (1 - pct)
+    if dry_run:
+        log.info("%s | [DRY-RUN] Würde Stop bei %.2f setzen (%s Stk.).", symbol, preis, held)
+        return
+    try:
+        place_stop(client, symbol, held, preis)
+        log.info("%s | Notfall-Stop gesetzt: %s Stk. bei %.2f $ (Einstieg %.2f, -%.0f %%)",
+                 symbol, held, preis, entry, pct * 100)
+    except Exception as exc:
+        log.error("%s | Stop setzen fehlgeschlagen: %s", symbol, exc)
+
+
 def process_symbol(client, cfg: dict, symbol: str, dry_run: bool, paper: bool) -> str:
     """Signal für eine Aktie berechnen und ggf. handeln. Gibt die Aktion zurück."""
     try:
         closes = fetch_closes(symbol, int(cfg["lookback_days"]))
-        res = compute_signal(closes, int(cfg["fast_ma"]), int(cfg["slow_ma"]))
+        res = recent_cross(closes, int(cfg["fast_ma"]), int(cfg["slow_ma"]),
+                           int(cfg.get("nachhol_tage", 3)))
     except Exception as exc:
         log.error("%s | Datenabruf/Berechnung fehlgeschlagen: %s", symbol, exc)
         return "FEHLER"
@@ -190,17 +253,30 @@ def process_symbol(client, cfg: dict, symbol: str, dry_run: bool, paper: bool) -
     )
 
     held = current_qty(client, symbol) if client is not None else 0.0
-    if client is not None and has_open_order(client, symbol):
-        log.info("%s | Es gibt schon eine offene Order -> nichts Neues.", symbol)
+    orders = open_orders(client, symbol) if client is not None else []
+    stops = [o for o in orders if _is_stop(o)]
+    if len(orders) > len(stops):
+        log.info("%s | Es gibt schon eine offene Kauf-/Verkaufsorder -> nichts Neues.", symbol)
         return "OFFENE_ORDER"
+
     action, order_id, qty = "HOLD", "", 0.0
-    if res["signal"] == BUY and held <= 0:
-        action, qty = BUY, order_qty(cfg, res["close"])
-    elif res["signal"] == SELL and held > 0:
+    cross, tage = res["cross"], res["tage_her"]
+    if cross != "HOLD" and tage:
+        log.info("%s | Letzte Kreuzung %s am %s (vor %s Handelstag(en)) – prüfe, ob sie umgesetzt wurde.",
+                 symbol, cross, res["cross_date"], tage)
+    if cross == BUY and held <= 0:
+        if client is not None and filled_since(client, symbol, res["cross_date"]):
+            log.info("%s | Seit der Kreuzung schon gehandelt (z. B. Stop ausgelöst) -> kein Nachkauf.", symbol)
+        else:
+            action, qty = BUY, order_qty(cfg, res["close"])
+            if tage:
+                log.info("%s | Kaufsignal wird NACHGEHOLT.", symbol)
+    elif cross == SELL and held > 0:
         action, qty = SELL, held
-    elif res["signal"] != "HOLD":
-        log.info("%s | Signal %s, aber Position passt schon (%s Stk.) -> keine Order.",
-                 symbol, res["signal"], held)
+        if tage:
+            log.info("%s | Verkaufssignal wird NACHGEHOLT.", symbol)
+    elif cross != "HOLD" and not tage:
+        log.info("%s | Signal %s, aber Position passt schon (%s Stk.) -> keine Order.", symbol, cross, held)
 
     if action != "HOLD":
         if dry_run:
@@ -208,12 +284,29 @@ def process_symbol(client, cfg: dict, symbol: str, dry_run: bool, paper: bool) -
             action = f"DRY_{action}"
         else:
             try:
+                if action == SELL:
+                    # Erst den Notfall-Stop löschen, sonst sind die Aktien bei Alpaca "reserviert"
+                    for o in stops:
+                        client.cancel_order_by_id(o.id)
+                    if stops:
+                        import time
+                        time.sleep(2)
+                    stops = []
                 order = place_order(client, symbol, qty, action)
                 order_id = str(order.id)
                 log.info("%s | Order gesendet: %s %s Stk. | Order-ID %s", symbol, action, qty, order_id)
+                if action == BUY:
+                    filled = wait_fill(client, order.id)
+                    if filled is not None:
+                        held = float(filled.filled_qty)
+                        ensure_stop(client, cfg, symbol, held, [], dry_run)
+                    else:
+                        log.warning("%s | Kauf noch nicht ausgeführt – wird bei der Kontrolle geprüft.", symbol)
             except Exception as exc:
                 log.error("%s | Order fehlgeschlagen: %s", symbol, exc)
                 action = f"FEHLER_{action}"
+    elif client is not None:
+        ensure_stop(client, cfg, symbol, held, stops, dry_run)
 
     write_journal({
         "zeit_et": datetime.now(ET).strftime("%Y-%m-%d %H:%M"),
@@ -223,6 +316,40 @@ def process_symbol(client, cfg: dict, symbol: str, dry_run: bool, paper: bool) -
         "modus": "dry" if dry_run else ("paper" if paper else "LIVE"),
     })
     return action
+
+
+def verify_and_retry(client, cfg: dict, gesendet: dict, minuten: float) -> None:
+    """Wartet `minuten` und prüft, ob Käufe/Verkäufe wirklich im Depot angekommen sind.
+    Wenn nicht: hängende Order löschen und einmal neu senden."""
+    import time
+
+    log.info("Kontrolle in %.0f Minuten für: %s", minuten, ", ".join(f"{s}={a}" for s, a in gesendet.items()))
+    time.sleep(minuten * 60)
+    for symbol, action in gesendet.items():
+        held = current_qty(client, symbol)
+        ok = held > 0 if action == BUY else held <= 0
+        if ok:
+            log.info("%s | Kontrolle OK: %s ausgeführt (Bestand %s Stk.).", symbol, action, held)
+            if action == BUY:
+                ensure_stop(client, cfg, symbol, held, [o for o in open_orders(client, symbol) if _is_stop(o)], False)
+            continue
+        log.warning("%s | Kontrolle: %s NICHT ausgeführt (Bestand %s) -> neuer Versuch.", symbol, action, held)
+        try:
+            for o in open_orders(client, symbol):
+                client.cancel_order_by_id(o.id)
+            time.sleep(2)
+            if action == BUY:
+                price = float(fetch_closes(symbol, 5).iloc[-1])
+                order = place_order(client, symbol, order_qty(cfg, price), BUY)
+                filled = wait_fill(client, order.id, 60)
+                if filled is not None:
+                    ensure_stop(client, cfg, symbol, float(filled.filled_qty), [], False)
+            else:
+                order = place_order(client, symbol, held, SELL)
+                wait_fill(client, order.id, 60)
+            log.info("%s | Zweiter Versuch: Bestand jetzt %s Stk.", symbol, current_qty(client, symbol))
+        except Exception as exc:
+            log.error("%s | Zweiter Versuch fehlgeschlagen: %s", symbol, exc)
 
 
 def main() -> int:
@@ -262,6 +389,11 @@ def main() -> int:
 
     ergebnisse = {s: process_symbol(client, cfg, s, dry_run, paper) for s in cfg["symbols"]}
     log.info("Fertig: %s", ", ".join(f"{s}={a}" for s, a in ergebnisse.items()))
+
+    gesendet = {s: a for s, a in ergebnisse.items() if a in (BUY, SELL)}
+    minuten = float(cfg.get("kontrolle_minuten", 10))
+    if gesendet and client is not None and not dry_run and minuten > 0:
+        verify_and_retry(client, cfg, gesendet, minuten)
 
     if client is not None and not args.test:
         state["last_run_et"] = today

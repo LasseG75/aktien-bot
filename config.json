@@ -4,5 +4,8 @@
   "slow_ma": 50,
   "trade_usd": 4500,
   "lookback_days": 100,
-  "dry_run": false
+  "dry_run": false,
+  "stop_loss_pct": 12,
+  "nachhol_tage": 3,
+  "kontrolle_minuten": 10
 }
