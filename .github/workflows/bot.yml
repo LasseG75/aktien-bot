@@ -7,6 +7,12 @@ on:
     - cron: "45 13 * * 1-5"
     - cron: "45 14 * * 1-5"
   workflow_dispatch:
+    inputs:
+      modus:
+        description: "test = nur prüfen (keine Orders, auch bei geschlossener Börse)"
+        type: choice
+        options: [test, normal]
+        default: test
 
 permissions:
   contents: write
@@ -17,18 +23,23 @@ concurrency:
 
 jobs:
   bot:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
       - name: Pakete installieren
         run: pip install -r requirements.txt
       - name: Bot laufen lassen
-        run: python bot.py
+        run: |
+          if [ "${{ github.event.inputs.modus }}" = "test" ]; then
+            python bot.py --test
+          else
+            python bot.py
+          fi
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
