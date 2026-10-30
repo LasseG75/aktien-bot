@@ -1,0 +1,13 @@
+2026-10-30 14:32:50 | INFO | Konto: Cash 45977.11 $ | Depotwert 49915.34 $ | Kaufkraft 194935.48 $
+2026-10-30 14:32:50 | INFO | AAPL | Schluss 2026-10-29: 348.91 | MA20 341.54 (vorher 340.61) | MA50 332.37 (vorher 331.73) | Signal: HOLD
+2026-10-30 14:32:51 | INFO | V | Schluss 2026-10-29: 410.54 | MA20 393.48 (vorher 390.94) | MA50 380.35 (vorher 379.45) | Signal: HOLD
+2026-10-30 14:32:51 | INFO | JPM | Schluss 2026-10-29: 343.58 | MA20 334.39 (vorher 333.79) | MA50 342.47 (vorher 342.71) | Signal: HOLD
+2026-10-30 14:32:52 | INFO | BRK.B | Schluss 2026-10-29: 541.96 | MA20 527.08 (vorher 525.01) | MA50 514.20 (vorher 513.35) | Signal: HOLD
+2026-10-30 14:32:52 | INFO | ABBV | Schluss 2026-10-29: 290.79 | MA20 279.28 (vorher 277.66) | MA50 267.37 (vorher 266.84) | Signal: HOLD
+2026-10-30 14:32:53 | INFO | AMGN | Schluss 2026-10-29: 460.73 | MA20 428.05 (vorher 425.37) | MA50 419.27 (vorher 418.85) | Signal: HOLD
+2026-10-30 14:32:54 | INFO | KO | Schluss 2026-10-29: 92.82 | MA20 90.68 (vorher 90.34) | MA50 89.21 (vorher 89.15) | Signal: HOLD
+2026-10-30 14:32:54 | INFO | XOM | Schluss 2026-10-29: 183.29 | MA20 174.82 (vorher 173.84) | MA50 167.34 (vorher 166.97) | Signal: HOLD
+2026-10-30 14:32:54 | INFO | LMT | Schluss 2026-10-29: 643.59 | MA20 551.79 (vorher 544.88) | MA50 542.24 (vorher 541.08) | Signal: HOLD
+2026-10-30 14:32:55 | INFO | LMT | Letzte Kreuzung BUY am 2026-10-28 (vor 1 Handelstag(en)) – prüfe, ob sie umgesetzt wurde.
+2026-10-30 14:32:55 | INFO | WM | Schluss 2026-10-29: 230.90 | MA20 221.79 (vorher 220.34) | MA50 217.38 (vorher 217.24) | Signal: HOLD
+2026-10-30 14:32:55 | INFO | Fertig: AAPL=HOLD, V=HOLD, JPM=HOLD, BRK.B=HOLD, ABBV=HOLD, AMGN=HOLD, KO=HOLD, XOM=HOLD, LMT=HOLD, WM=HOLD
