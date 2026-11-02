@@ -12,3 +12,16 @@
 2026-10-30 14:32:55 | INFO | WM | Schluss 2026-10-29: 230.90 | MA20 221.79 (vorher 220.34) | MA50 217.38 (vorher 217.24) | Signal: HOLD
 2026-10-30 14:32:55 | INFO | Fertig: AAPL=HOLD, V=HOLD, JPM=HOLD, BRK.B=HOLD, ABBV=HOLD, AMGN=HOLD, KO=HOLD, XOM=HOLD, LMT=HOLD, WM=HOLD
 2026-10-30 15:33:40 | INFO | Heute (2026-10-30 ET) schon gelaufen -> übersprungen.
+2026-11-02 14:37:23 | INFO | Konto: Cash 45977.1 $ | Depotwert 49886.58 $ | Kaufkraft 194854.94 $
+2026-11-02 14:37:23 | INFO | AAPL | Schluss 2026-10-30: 344.63 | MA20 342.08 (vorher 341.54) | MA50 333.04 (vorher 332.37) | Signal: HOLD
+2026-11-02 14:37:23 | INFO | V | Schluss 2026-10-30: 413.59 | MA20 396.12 (vorher 393.48) | MA50 381.31 (vorher 380.35) | Signal: HOLD
+2026-11-02 14:37:24 | INFO | JPM | Schluss 2026-10-30: 337.04 | MA20 334.71 (vorher 334.39) | MA50 342.21 (vorher 342.47) | Signal: HOLD
+2026-11-02 14:37:24 | INFO | BRK.B | Schluss 2026-10-30: 542.49 | MA20 529.08 (vorher 527.08) | MA50 515.11 (vorher 514.20) | Signal: HOLD
+2026-11-02 14:37:24 | INFO | ABBV | Schluss 2026-10-30: 294.89 | MA20 280.96 (vorher 279.28) | MA50 268.07 (vorher 267.37) | Signal: HOLD
+2026-11-02 14:37:24 | INFO | AMGN | Schluss 2026-10-30: 466.01 | MA20 431.20 (vorher 428.05) | MA50 419.96 (vorher 419.27) | Signal: HOLD
+2026-11-02 14:37:25 | INFO | KO | Schluss 2026-10-30: 94.08 | MA20 91.10 (vorher 90.68) | MA50 89.30 (vorher 89.21) | Signal: HOLD
+2026-11-02 14:37:25 | INFO | XOM | Schluss 2026-10-30: 187.25 | MA20 175.98 (vorher 174.82) | MA50 167.76 (vorher 167.34) | Signal: HOLD
+2026-11-02 14:37:25 | INFO | LMT | Schluss 2026-10-30: 636.95 | MA20 558.37 (vorher 551.79) | MA50 543.62 (vorher 542.24) | Signal: HOLD
+2026-11-02 14:37:25 | INFO | LMT | Letzte Kreuzung BUY am 2026-10-28 (vor 2 Handelstag(en)) – prüfe, ob sie umgesetzt wurde.
+2026-11-02 14:37:26 | INFO | WM | Schluss 2026-10-30: 233.45 | MA20 223.24 (vorher 221.79) | MA50 217.57 (vorher 217.38) | Signal: HOLD
+2026-11-02 14:37:26 | INFO | Fertig: AAPL=HOLD, V=HOLD, JPM=HOLD, BRK.B=HOLD, ABBV=HOLD, AMGN=HOLD, KO=HOLD, XOM=HOLD, LMT=HOLD, WM=HOLD
